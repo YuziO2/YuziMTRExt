@@ -1,0 +1,26 @@
+name: Build
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: >-
+      github.event.action != 'closed' ||
+      (github.event.pull_request.merged == true &&
+      (github.event.pull_request.base.ref == 'master' ||
+      github.event.pull_request.base.ref == 'main'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - run: ./gradlew build --no-daemon
+      - run: ./gradlew runGametest --no-daemon

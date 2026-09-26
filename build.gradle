@@ -72,6 +72,34 @@ java {
 	}
 }
 
+// GameTest 是独立的开发模组，不进发布 jar。
+sourceSets {
+	gametest {
+		compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+		runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+	}
+}
+
+loom {
+	mods {
+		yuzimtr {
+			sourceSet sourceSets.main
+		}
+		yuzimtr_gametest {
+			sourceSet sourceSets.gametest
+		}
+	}
+	runs {
+		gametest {
+			server()
+			source sourceSets.gametest
+			vmArg '-Dfabric-api.gametest'
+			vmArg "-Dfabric-api.gametest.report-file=${layout.buildDirectory.file('gametest-results.xml').get().asFile}"
+			runDir 'build/gametest'
+		}
+	}
+}
+
 jar {
 	from('LICENSE') { rename { "${it}_${base.archivesName.get()}" } }
 }

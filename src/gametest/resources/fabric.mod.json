@@ -1,0 +1,17 @@
+{
+	"schemaVersion": 1,
+	"id": "yuzimtr_gametest",
+	"version": "1.0.0",
+	"name": "Yuzi MTR Ext GameTests",
+	"environment": "server",
+	"entrypoints": {
+		"fabric-gametest": [
+			"com.yuzi.mtrext.gametest.StationAnnouncerGameTest",
+			"com.yuzi.mtrext.gametest.RopeBarrierGameTest",
+			"com.yuzi.mtrext.gametest.MtrVehicleDoorSignalGameTest"
+		]
+	},
+	"depends": {
+		"yuzimtr": "*"
+	}
+}

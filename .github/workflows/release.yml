@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Verify release tag
+        run: |
+          version=$(sed -n 's/^mod_version=//p' gradle.properties)
+          minecraft_version=$(sed -n 's/^minecraft_version=//p' gradle.properties)
+          test -n "$version"
+          test -n "$minecraft_version"
+          test "$GITHUB_REF_NAME" = "v${version}+${minecraft_version}"
+      - run: ./gradlew clean build --no-daemon
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(sed -n 's/^mod_version=//p' gradle.properties)
+          minecraft_version=$(sed -n 's/^minecraft_version=//p' gradle.properties)
+          asset="build/libs/yuzimtr-${version}+${minecraft_version}.jar"
+          test -f "$asset"
+          gh release create "$GITHUB_REF_NAME" "$asset" --verify-tag --generate-notes
