@@ -1,0 +1,14 @@
+{
+	"parent": "item/generated",
+	"textures": {
+		"layer0": "yuzimtr:item/rail_connector_280_one_way"
+	},
+	"overrides": [
+		{
+			"predicate": {
+				"mtr:selected": 1
+			},
+			"model": "yuzimtr:item/rail_connector_280_one_way_selected"
+		}
+	]
+}

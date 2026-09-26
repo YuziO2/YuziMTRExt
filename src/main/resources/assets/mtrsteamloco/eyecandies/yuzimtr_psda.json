@@ -1,0 +1,22 @@
+{
+	"yuzimtr_psda_post": {
+		"name": "绳索屏蔽门 · 柱身（点阵屏）",
+		"model": "mtrsteamloco:eyecandies/yuzimtr_psda/post.obj"
+	},
+	"yuzimtr_psda_post_blank": {
+		"name": "绳索屏蔽门 · 柱身（纯白）",
+		"model": "mtrsteamloco:eyecandies/yuzimtr_psda/post_blank.obj"
+	},
+	"yuzimtr_psda_head": {
+		"name": "绳索屏蔽门 · 柱头",
+		"model": "mtrsteamloco:eyecandies/yuzimtr_psda/head.obj"
+	},
+	"yuzimtr_psda_rope_red": {
+		"name": "绳索屏蔽门 · 红绳",
+		"model": "mtrsteamloco:eyecandies/yuzimtr_psda/rope_red.obj"
+	},
+	"yuzimtr_psda_rope_yellow": {
+		"name": "绳索屏蔽门 · 黄绳",
+		"model": "mtrsteamloco:eyecandies/yuzimtr_psda/rope_yellow.obj"
+	}
+}

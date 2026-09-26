@@ -1,0 +1,13 @@
+升降式绳索屏蔽门的模型、贴图与音效派生自：
+  RailwayAesthetics-Future — 作者 aphrodite281
+  https://github.com/aphrodite281/RailwayAesthetics-Future
+  许可：GNU Affero General Public License v3.0
+
+派生方式见 tools/gen_psda_pack.py：
+  - post.obj / post_blank.obj = movea.obj 的 d1 + d2 + sc 分组；sc（正面屏幕平面）
+    分别改指深色（点阵屏底）与白色；t1/t2（柱脚小告示牌）一律填白
+  - head.obj  = movea.obj 的 m 分组
+  - rope_red / rope_yellow = linea.obj，颜色烤进 MTL 的 Kd
+  - suo.png、t.ogg 原样复制
+
+因为打包了这些 AGPL 资产，本模组整体也按 AGPL-3.0 分发。

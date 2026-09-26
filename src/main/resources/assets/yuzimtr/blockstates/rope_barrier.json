@@ -1,0 +1,12 @@
+{
+	"variants": {
+		"half=lower,facing=north": {"model": "yuzimtr:block/rope_barrier"},
+		"half=lower,facing=east":  {"model": "yuzimtr:block/rope_barrier", "y": 90},
+		"half=lower,facing=south": {"model": "yuzimtr:block/rope_barrier", "y": 180},
+		"half=lower,facing=west":  {"model": "yuzimtr:block/rope_barrier", "y": 270},
+		"half=upper,facing=north": {"model": "yuzimtr:block/rope_barrier_upper"},
+		"half=upper,facing=east":  {"model": "yuzimtr:block/rope_barrier_upper"},
+		"half=upper,facing=south": {"model": "yuzimtr:block/rope_barrier_upper"},
+		"half=upper,facing=west":  {"model": "yuzimtr:block/rope_barrier_upper"}
+	}
+}

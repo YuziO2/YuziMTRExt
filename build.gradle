@@ -1,0 +1,97 @@
+plugins {
+	id 'fabric-loom' version "${loom_version}"
+}
+
+version = "${mod_version}+${minecraft_version}"
+group = project.maven_group
+
+base {
+	archivesName = project.archives_base_name
+}
+
+repositories {
+	// MTR 只发布在 Modrinth，没有正式 Maven
+	exclusiveContent {
+		forRepository {
+			maven { name = 'Modrinth'; url = 'https://api.modrinth.com/maven' }
+		}
+		filter { includeGroup 'maven.modrinth' }
+	}
+	// 「模组菜单」
+	maven { name = 'TerraformersMC'; url = 'https://maven.terraformersmc.com/releases' }
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${minecraft_version}"
+	mappings  "net.fabricmc:yarn:${yarn_mappings}:v2"
+	modImplementation "net.fabricmc:fabric-loader:${loader_version}"
+	modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+
+	// 目标：MTR 4.0.5。MTR 自带 Transport-Simulation-Core 与 Mapping Layer（未 relocate），
+	// 所以 org.mtr.core.* / org.mtr.mapping.* 也从这个依赖来。
+	modImplementation "maven.modrinth:minecraft-transit-railway:FABRIC-${mtr_version}+${minecraft_version}"
+
+	// 只在编译期需要：modmenu 入口类只有装了「模组菜单」才会被加载，
+	// 没装的话那个类压根不会被 classload，不会 NoClassDefFoundError。
+	modCompileOnly("com.terraformersmc:modmenu:${modmenu_version}") {
+		exclude group: 'net.fabricmc', module: 'fabric-loader'
+	}
+
+	compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
+}
+
+processResources {
+	inputs.property 'version', project.version
+	inputs.property 'minecraft_version', project.minecraft_version
+	inputs.property 'loader_version', project.loader_version
+	inputs.property 'mtr_version', project.mtr_version
+
+	filesMatching('fabric.mod.json') {
+		expand([
+			version          : project.version,
+			minecraft_version: project.minecraft_version,
+			loader_version   : project.loader_version,
+			mtr_version      : project.mtr_version,
+		])
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.encoding = 'UTF-8'
+	it.options.release = 17
+}
+
+java {
+	// 不生成 sources jar：Loom 的 remapSourcesJar 走 Mercury/JDT，
+	// Gradle 跑在 JVM 21 而 toolchain 是 17 时它会在 ClasspathJrt.loadModules 抛异常。
+	// 非致命（主产物照常出），但输出里一大坨堆栈很吵，而且我们不需要 sources jar。
+	// 用 toolchain 而不是 source/targetCompatibility：
+	// 配合 settings.gradle 的 foojay resolver，没有本地 JDK 时会自动下一个 17
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
+}
+
+jar {
+	from('LICENSE') { rename { "${it}_${base.archivesName.get()}" } }
+}
+
+// 便捷任务：构建后直接丢进 mods 目录。路径在 gradle.properties 里。
+// 分交路停站时长是服务端功能，改了它要 deployToServer 并重启服务端。
+private void registerDeployTask(String name, String targetDir) {
+	tasks.register(name, Copy) {
+		dependsOn tasks.remapJar
+		from tasks.remapJar
+		into targetDir
+		doFirst {
+			delete fileTree(targetDir) { include "${base.archivesName.get()}-*.jar" }
+		}
+	}
+}
+
+registerDeployTask('deployToClient', project.client_mods_dir)
+registerDeployTask('deployToServer', project.server_mods_dir)
+
+tasks.register('deployAll') {
+	dependsOn tasks.named('deployToClient'), tasks.named('deployToServer')
+}

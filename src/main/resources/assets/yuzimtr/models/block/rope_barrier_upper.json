@@ -1,0 +1,6 @@
+{
+	"__comment": "绳索的上半块不画任何静态几何 —— 绳子由 RenderRopeBarrier 从下半块统一画出，模型会向上伸进这一格。",
+	"parent": "block/block",
+	"textures": {"particle": "yuzimtr:block/rope_barrier"},
+	"elements": []
+}

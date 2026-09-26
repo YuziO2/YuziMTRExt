@@ -1,0 +1,8 @@
+{
+	"__comment": "不画任何静态几何：OBJ 现在从 MainRendererMixin 画，那条路径会进光影的阴影 pass，影子由 OBJ 自己投出，不再需要 blockstate 兜底的方盒（那个方盒形状不对，而且柱头升起后还会露出来）。",
+	"parent": "block/block",
+	"textures": {
+		"particle": "yuzimtr:block/rope_barrier_post"
+	},
+	"elements": []
+}

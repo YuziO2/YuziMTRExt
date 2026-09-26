@@ -1,0 +1,42 @@
+{
+	"__comment": "只给背包里的图标用；放到世界里是不画静态几何的。",
+	"parent": "block/block",
+	"textures": {
+		"all": "yuzimtr:block/rope_barrier",
+		"particle": "yuzimtr:block/rope_barrier"
+	},
+	"elements": [
+		{
+			"from": [
+				0,
+				6,
+				7
+			],
+			"to": [
+				16,
+				8,
+				9
+			],
+			"faces": {
+				"north": {
+					"texture": "#all"
+				},
+				"south": {
+					"texture": "#all"
+				},
+				"east": {
+					"texture": "#all"
+				},
+				"west": {
+					"texture": "#all"
+				},
+				"up": {
+					"texture": "#all"
+				},
+				"down": {
+					"texture": "#all"
+				}
+			}
+		}
+	]
+}

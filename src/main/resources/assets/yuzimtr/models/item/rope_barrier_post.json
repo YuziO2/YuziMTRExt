@@ -1,0 +1,74 @@
+{
+	"__comment": "只给背包图标用。方块的静态模型已经置空（几何全部由 MainRendererMixin 画的 OBJ 提供），所以物品模型不能再 parent 到它，否则图标是空的。",
+	"parent": "block/block",
+	"textures": {
+		"all": "yuzimtr:block/rope_barrier_post",
+		"particle": "yuzimtr:block/rope_barrier_post"
+	},
+	"elements": [
+		{
+			"from": [
+				6,
+				0,
+				6
+			],
+			"to": [
+				10,
+				15,
+				10
+			],
+			"faces": {
+				"north": {
+					"texture": "#all"
+				},
+				"south": {
+					"texture": "#all"
+				},
+				"east": {
+					"texture": "#all"
+				},
+				"west": {
+					"texture": "#all"
+				},
+				"up": {
+					"texture": "#all"
+				},
+				"down": {
+					"texture": "#all"
+				}
+			}
+		},
+		{
+			"from": [
+				5,
+				15,
+				5
+			],
+			"to": [
+				11,
+				16,
+				11
+			],
+			"faces": {
+				"north": {
+					"texture": "#all"
+				},
+				"south": {
+					"texture": "#all"
+				},
+				"east": {
+					"texture": "#all"
+				},
+				"west": {
+					"texture": "#all"
+				},
+				"up": {
+					"texture": "#all"
+				},
+				"down": {
+					"texture": "#all"
+				}
+			}
+		}
+	]
+}

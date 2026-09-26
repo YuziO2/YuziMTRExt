@@ -1,0 +1,8 @@
+{
+	"__comment": "绳索方块不画任何静态几何 —— 绳子全部由 RenderRopeBarrier 用派生的 OBJ 模型画出。",
+	"parent": "block/block",
+	"textures": {
+		"particle": "yuzimtr:block/rope_barrier"
+	},
+	"elements": []
+}

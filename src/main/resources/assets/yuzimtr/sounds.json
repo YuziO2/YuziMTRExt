@@ -1,0 +1,10 @@
+{
+	"psda_open": {
+		"sounds": [{"name": "mtrsteamloco:psda/t"}],
+		"subtitle": "subtitles.yuzimtr.psda_open"
+	},
+	"psda_close": {
+		"sounds": [{"name": "mtrsteamloco:psda/t"}],
+		"subtitle": "subtitles.yuzimtr.psda_close"
+	}
+}

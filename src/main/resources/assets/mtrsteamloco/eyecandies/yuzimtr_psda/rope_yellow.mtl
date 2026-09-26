@@ -1,0 +1,4 @@
+# 颜色烤进 Kd —— MTR4 没有 ANTE 的 alterAllRGBA 顶点改色 API
+newmtl rope
+Kd 1.000000 1.000000 0.000000
+d 1.000000

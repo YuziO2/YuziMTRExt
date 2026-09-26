@@ -1,0 +1,35 @@
+{
+	"schemaVersion": 1,
+	"id": "yuzimtr",
+	"version": "${version}",
+	"name": "yuzi的MTR扩展",
+	"description": "给 MTR 4.0.5 打补丁：修复车辆模型缓存反复重建，并把 MTR3 时代的分交路停站时长、走到窗边、shift 蹲下补回来。",
+	"authors": [
+		"yuzi"
+	],
+	"license": "AGPL-3.0-or-later",
+	"icon": "assets/yuzimtr/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.yuzi.mtrext.YuziMtrExt"
+		],
+		"client": [
+			"com.yuzi.mtrext.client.YuziMtrExtClient"
+		],
+		"modmenu": [
+			"com.yuzi.mtrext.client.ModMenuConfig"
+		]
+	},
+	"mixins": [
+		{
+			"config": "yuzimtr.mixins.json"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.15.0",
+		"minecraft": "~${minecraft_version}",
+		"java": ">=17",
+		"mtr": ">=${mtr_version}"
+	}
+}
