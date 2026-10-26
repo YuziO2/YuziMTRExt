@@ -3,7 +3,7 @@ package com.yuzi.mtrext.client;
 import com.yuzi.mtrext.YuziMtrExt;
 import com.yuzi.mtrext.announcer.PacketAllRoutes;
 import com.yuzi.mtrext.station.AnnouncerRule;
-import com.yuzi.mtrext.station.PacketUpdateStationAnnouncer;
+import com.yuzi.mtrext.station.PacketUpdateStationAnnouncerV2;
 import com.yuzi.mtrext.station.StationAnnouncerBlockEntity;
 import org.mtr.libraries.it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.mtr.mapping.holder.BlockPos;
@@ -38,7 +38,7 @@ import java.util.List;
  * <p>界面直接改 {@link AnnouncerRule} 对象本身，子界面拿到的是同一个引用，所以返回时
  * 不需要回传；列表每帧重建（规则个数是个位数，重建比做脏标记便宜）。
  *
- * <p>关界面时整份发给服务端，见 {@link PacketUpdateStationAnnouncer}。
+ * <p>关界面时整份发给服务端，见 {@link PacketUpdateStationAnnouncerV2}。
  */
 public class StationAnnouncerScreen extends MTRScreenBase implements IGui {
 
@@ -49,6 +49,9 @@ public class StationAnnouncerScreen extends MTRScreenBase implements IGui {
 	private final CheckboxWidgetExtension realtimeOnlyCheckbox;
 	private final CheckboxWidgetExtension limitRangeCheckbox;
 	private final TextFieldWidgetExtension[] cornerFields = new TextFieldWidgetExtension[6];
+	/** 续播范围：不续播 / 所在车站 / 自定义，点一下换一档。只在勾了限制范围时显示。 */
+	private final ButtonWidgetExtension buttonJoinMode;
+	private final TextFieldWidgetExtension[] joinCornerFields = new TextFieldWidgetExtension[6];
 	private final DashboardList rulesList;
 	private final ButtonWidgetExtension buttonAddRule;
 
@@ -64,12 +67,14 @@ public class StationAnnouncerScreen extends MTRScreenBase implements IGui {
 	private final TexturedButtonWidgetExtension buttonCopy;
 	private final ButtonWidgetExtension buttonPaste;
 	private int yRulesHeader;
+	private int yJoinCorners;
 
 	/** {@code DashboardList.TOP_OFFSET} 是 private 的，照抄：列表顶上那一行是翻页 + 搜索框。 */
 	private static final int LIST_TOP_OFFSET = SQUARE_SIZE + TEXT_FIELD_PADDING;
 
 	private boolean realtimeOnly;
 	private boolean limitRange;
+	private int joinMode;
 
 	/**
 	 * 输入框里的原始文本。
@@ -85,6 +90,7 @@ public class StationAnnouncerScreen extends MTRScreenBase implements IGui {
 	 */
 	private String volumeText;
 	private final String[] cornerTexts = new String[6];
+	private final String[] joinCornerTexts = new String[6];
 
 	private static final int COORD_FIELD_WIDTH = 46;
 
@@ -115,6 +121,19 @@ public class StationAnnouncerScreen extends MTRScreenBase implements IGui {
 			// 允许负号：坐标可以在 0 以西/以北，而且 Y 在 1.20 里能到 -64。
 			cornerFields[i] = new TextFieldWidgetExtension(0, 0, 0, SQUARE_SIZE, 7, TextCase.DEFAULT, "[^-\\d]", "0");
 			cornerTexts[i] = String.valueOf(coords[i]);
+		}
+
+		joinMode = blockEntity.getJoinMode();
+		buttonJoinMode = new ButtonWidgetExtension(0, 0, 0, SQUARE_SIZE, joinModeLabel(), button -> {
+			joinMode = (joinMode + 1) % 3;
+			buttonJoinMode().setMessage2(new Text(joinModeLabel().data));
+		});
+		final BlockPos joinCorner1 = blockEntity.getJoinCorner1();
+		final BlockPos joinCorner2 = blockEntity.getJoinCorner2();
+		final int[] joinCoords = {joinCorner1.getX(), joinCorner1.getY(), joinCorner1.getZ(), joinCorner2.getX(), joinCorner2.getY(), joinCorner2.getZ()};
+		for (int i = 0; i < joinCornerFields.length; i++) {
+			joinCornerFields[i] = new TextFieldWidgetExtension(0, 0, 0, SQUARE_SIZE, 7, TextCase.DEFAULT, "[^-\\d]", "0");
+			joinCornerTexts[i] = String.valueOf(joinCoords[i]);
 		}
 
 		rulesList = new DashboardList(
@@ -174,8 +193,20 @@ public class StationAnnouncerScreen extends MTRScreenBase implements IGui {
 			addChild(new ClickableWidget(cornerFields[i]));
 		}
 
+		final int yJoinMode = yCorners + SQUARE_SIZE + TEXT_FIELD_PADDING;
+		IDrawing.setPositionAndWidth(buttonJoinMode, SQUARE_SIZE, yJoinMode, PANEL_WIDTH);
+		addChild(new ClickableWidget(buttonJoinMode));
+
+		yJoinCorners = yJoinMode + SQUARE_SIZE + TEXT_HEIGHT + TEXT_PADDING;
+		for (int i = 0; i < joinCornerFields.length; i++) {
+			final int x = SQUARE_SIZE + i * (COORD_FIELD_WIDTH + TEXT_FIELD_PADDING) + (i >= 3 ? SQUARE_SIZE : 0);
+			IDrawing.setPositionAndWidth(joinCornerFields[i], x, yJoinCorners, COORD_FIELD_WIDTH);
+			joinCornerFields[i].setText2(joinCornerTexts[i]); // 同上，顺序不能反
+			addChild(new ClickableWidget(joinCornerFields[i]));
+		}
+
 		// 「广播规则（N 条）」这一行要放粘贴按钮，所以给它一整行高度。
-		yRulesHeader = yCorners + SQUARE_SIZE + TEXT_FIELD_PADDING;
+		yRulesHeader = yJoinCorners + SQUARE_SIZE + TEXT_FIELD_PADDING;
 		IDrawing.setPositionAndWidth(buttonPaste, pasteButtonX(), yRulesHeader, PANEL_WIDTH / 2);
 		addChild(new ClickableWidget(buttonPaste));
 
@@ -199,6 +230,10 @@ public class StationAnnouncerScreen extends MTRScreenBase implements IGui {
 			cornerFields[i].tick2();
 			cornerTexts[i] = cornerFields[i].getText2();
 		}
+		for (int i = 0; i < joinCornerFields.length; i++) {
+			joinCornerFields[i].tick2();
+			joinCornerTexts[i] = joinCornerFields[i].getText2();
+		}
 		// 规则可能刚在子界面里改过，每帧重建最省心 —— 个位数的规模，不值得做脏标记。
 		final ObjectArrayList<DashboardListItem> items = new ObjectArrayList<>();
 		for (int i = 0; i < rules.size(); i++) {
@@ -213,6 +248,11 @@ public class StationAnnouncerScreen extends MTRScreenBase implements IGui {
 		// 坐标输入在没勾「限制范围」时藏起来，省得以为它们一直生效。
 		for (final TextFieldWidgetExtension cornerField : cornerFields) {
 			cornerField.visible = limitRange;
+		}
+		// 续播只对限制范围有意义；自定义框的坐标只在选了「自定义」时出现
+		buttonJoinMode.visible = limitRange;
+		for (final TextFieldWidgetExtension joinCornerField : joinCornerFields) {
+			joinCornerField.visible = limitRange && joinMode == StationAnnouncerBlockEntity.JOIN_CUSTOM;
 		}
 	}
 
@@ -231,6 +271,18 @@ public class StationAnnouncerScreen extends MTRScreenBase implements IGui {
 							Math.abs(parseCoord(4) - parseCoord(1)) + 1,
 							Math.abs(parseCoord(5) - parseCoord(2)) + 1),
 					SQUARE_SIZE, yCornersLabel, ARGB_WHITE, false, GraphicsHolder.getDefaultLight());
+		}
+		if (limitRange) {
+			graphicsHolder.drawText(TextHelper.translatable("gui.yuzimtr.announcer_join_hint"),
+					SQUARE_SIZE + PANEL_WIDTH + TEXT_PADDING, yJoinCorners - TEXT_HEIGHT - TEXT_PADDING - SQUARE_SIZE + (SQUARE_SIZE - TEXT_HEIGHT) / 2,
+					ARGB_LIGHT_GRAY, false, GraphicsHolder.getDefaultLight());
+		}
+		if (limitRange && joinMode == StationAnnouncerBlockEntity.JOIN_CUSTOM) {
+			graphicsHolder.drawText(TextHelper.translatable("gui.yuzimtr.announcer_join_corners",
+							Math.abs(parseJoinCoord(3) - parseJoinCoord(0)) + 1,
+							Math.abs(parseJoinCoord(4) - parseJoinCoord(1)) + 1,
+							Math.abs(parseJoinCoord(5) - parseJoinCoord(2)) + 1),
+					SQUARE_SIZE, yJoinCorners - TEXT_HEIGHT - TEXT_PADDING, ARGB_WHITE, false, GraphicsHolder.getDefaultLight());
 		}
 		final int textOffset = (SQUARE_SIZE - TEXT_HEIGHT) / 2;
 		graphicsHolder.drawText(rulesLabel(), SQUARE_SIZE, yRulesHeader + textOffset, ARGB_WHITE, false, GraphicsHolder.getDefaultLight());
@@ -269,10 +321,13 @@ public class StationAnnouncerScreen extends MTRScreenBase implements IGui {
 
 	@Override
 	public void onClose2() {
-		YuziMtrExtClient.REGISTRY_CLIENT.sendPacketToServer(new PacketUpdateStationAnnouncer(
+		YuziMtrExtClient.REGISTRY_CLIENT.sendPacketToServer(new PacketUpdateStationAnnouncerV2(
 				blockPos, rules, parseVolume(), realtimeOnly, limitRange,
 				new BlockPos(parseCoord(0), parseCoord(1), parseCoord(2)),
-				new BlockPos(parseCoord(3), parseCoord(4), parseCoord(5))
+				new BlockPos(parseCoord(3), parseCoord(4), parseCoord(5)),
+				joinMode,
+				new BlockPos(parseJoinCoord(0), parseJoinCoord(1), parseJoinCoord(2)),
+				new BlockPos(parseJoinCoord(3), parseJoinCoord(4), parseJoinCoord(5))
 		));
 		super.onClose2();
 	}
@@ -332,6 +387,23 @@ public class StationAnnouncerScreen extends MTRScreenBase implements IGui {
 		} catch (Exception e) {
 			return 0;
 		}
+	}
+
+	private int parseJoinCoord(int index) {
+		try {
+			return Integer.parseInt(joinCornerFields[index].getText2());
+		} catch (Exception e) {
+			return 0;
+		}
+	}
+
+	private ButtonWidgetExtension buttonJoinMode() {
+		return buttonJoinMode;
+	}
+
+	private org.mtr.mapping.holder.MutableText joinModeLabel() {
+		final String mode = joinMode == StationAnnouncerBlockEntity.JOIN_NONE ? "none" : joinMode == StationAnnouncerBlockEntity.JOIN_CUSTOM ? "custom" : "station";
+		return TextHelper.translatable("gui.yuzimtr.announcer_join_mode", TextHelper.translatable("gui.yuzimtr.announcer_join_" + mode));
 	}
 
 	/** 2.0 显示成 "2"，2.5 保持 "2.5" —— 免得输入框里一上来就是个刺眼的小数点。 */

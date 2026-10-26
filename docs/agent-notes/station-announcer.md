@@ -54,6 +54,70 @@ TSC 侧的来源是 `Siding.getArrivals`（字节码）：
 这一档固定传 1000：增益照样被钳到 1，只是把衰减距离拉到听不出衰减。
 MTR 自己的 `BlockTrainAnnouncer` 传 1000 正是这个道理。
 
+以上是**旧客户端的退路**。1.6.0 起改成「离框淡出」（下一节），只有不认识新通道的客户端还走 `playNotifySound` + 1000。
+
+## 「限制范围」离框淡出 · `stationAnnouncerFadeMillis`
+
+用户现象（3 号线，站台广播器限制范围，框罩住站台和车厢）：后车跟得近时，后车的「即将到达」在前车还停着时响起，
+前车上的人在框里，于是一路听到放完 —— 车早开走了，和下一站的报站叠在一起。要的是**离开站台就听不到**。
+
+`playNotifySound` 做不到：声音一发出去就归客户端管，服务端没有「调音量」的指令，只能 `StopSound` 硬切。
+所以改成服务端只发「放哪个音、框在哪、淡出几 tick」，客户端用一个 `MovingSoundInstance` 自己播：
+
+- 不定位（`relative = true`、`AttenuationType.NONE`），没有方位和距离衰减，框里哪儿都一样响 —— 和老路径一致。
+- 每 tick 看客户端玩家坐标（脚下，和服务端选人一致）在不在框里；离框按 `RangeFade` 线性降，降到 0 `setDone()`。
+  淡出途中走回框里按同样速度升回来。默认 500 ms（10 tick），0 = 离框当 tick 就停。
+- 音量：引擎增益是 `clamp(volume × 「方块」分类音量, 0, 1)`。传 `比例 ÷ 分类音量`：满格时增益是 1，
+  和老路径的 1000 一样不受分类滑块影响；淡出时增益就是比例本身。分类音量 0 时两条路都没声。
+- 开始播放时谁在框里仍按**触发那一刻**选人（框外的人收不到这条指令）；之后才走进框的人照旧听不到。
+
+**为什么单开一条 Fabric 通道 `yuzimtr:ranged_sound`，不走 mapping 层的 `yuzimtr:packet`**：兼容没升级的客户端。
+mapping 层客户端收到不认识的包是静默丢弃（`RegistryClient.lambda$setupPackets$9`：`Map.get` 为 null 直接 return，字节码确认），
+服务端也分不出对方认不认识 —— 等于旧客户端在框里什么都听不到。单开通道后，客户端注册了接收器，Fabric 进服时会把通道名
+报给服务端，`ServerPlayNetworking.canSend` 就能逐人判断：认识的发淡出指令，不认识的退回 `playNotifySound` + 1000（放完为止）。
+
+GameTest `rangeModeFadesOutAfterLeavingTheBox` 测 `RangeFade` 的线性淡出、走回框里恢复、1 tick 立即停。
+客户端那半（声音实例、通道注册）GameTest 测不到，要进游戏听。
+
+## 续播范围 · 1.7.0（`join_mode`）
+
+用户现象：站台只有一半划进了播放框，人从站台另一头走过来，进框时广播已经开始了，就一点也听不到。
+又不能放开成「谁进框都接着听」：坐车进站的乘客不该听到站台刚放的那段。
+
+**资格按触发那一刻定**（客户端收到指令时）：
+- 人在播放框里 → 有资格，马上满音量播放，乘不乘车都一样（和以前一样）。
+- 不在框里：续播关着、正在乘车（MTR 的 `VehicleRidingMovement.ridingVehicleId != 0`，下车时清零）、
+  或不在续播范围里 → 没资格。坐车进站的人要么触发时在站外，要么在车上，都被挡掉。
+- 续播范围三档：不续播 / **所在车站（缺省，老方块读档也按它）** / 自定义长方体。
+
+**之后**：有资格的人只要人在框里、又没有正在放的实例，就开一个新实例，
+**播放位置 = 触发以来实际过去的时间**（不是上次停下的地方），从 0 音量淡入；超过音频时长就不放。
+离框照旧淡出停掉，所以来回进出，每次听到的都是「此刻该放到的地方」。时长用规则里存的 `durationMillis`，
+没量过就客户端读 ogg（`OggDuration`），都没有就最多保留 2 分钟。
+
+**车站范围只能在客户端判**：MTR 的服务端 mod 不持有 TSC 的 `Simulator`（见 `PacketAllRoutes` 的说明），
+拿不到车站；客户端 `MinecraftClientData.platformIdMap` 里有。所以车站档下服务端把指令发给水平 512 格内所有支持的玩家，
+由客户端按规则的站台 id 找所属车站（`Platform.area`）、`Station.inArea` 判断。MTR 的车站范围是**平面矩形、上下不限高**
+（本地存档 208 个车站全是 `Long.MIN_VALUE..MAX_VALUE`），没关系：播放框本身限了高度。自定义档服务端自己筛。
+
+**从中途开始放，原版做不到**：1.20.1 的 `SoundInstance` 还没有 `getAudioStream`。`SoundSystemSeekMixin`
+（客户端）用 `@WrapOperation` 包住 `SoundSystem.play(SoundInstance)` 里唯一一处 `SoundLoader.loadStreamed`，
+对我们的实例套一层 `SkippingAudioStream`：先解码丢掉开头那么多毫秒（按帧对齐），跳过量超过全长时第一次读就是空的、
+引擎当作放完。只有流式加载能这么做，所以需要跳过时把非流式的 `Sound` 换成 `stream=true` 的拷贝（报站包本来就全是流式）。
+
+**不预先静音播放**：本可以对有资格的人从触发起就静音放着、进框再把音量拉起来，省掉跳读。但报站包 551 条全是流式，
+客户端同时最多 8 路流（`SoundEngine`：`clamp(sqrt(总声道), 2, 8)`），按车站范围铺开，大站几个站台一起播时
+会把真该听的挤掉，而且是静默失败。
+
+**兼容（格式变了就换通道名 / 包名）**：
+- 播放指令：新通道 `yuzimtr:ranged_sound_join`。服务端按 `canSend` 降级：新通道 → 1.6.0 的 `ranged_sound`（只给框里的人）→ `playNotifySound`。
+  客户端两个通道都注册，所以连 1.6.0 的服务端也照旧离框淡出。
+- 保存配置：新包 `PacketUpdateStationAnnouncerV2`。mapping 层的 `PacketBufferReceiver` 没有「还剩几个字节」，
+  往旧包末尾加字段的话，新服务端读旧客户端的包会越界。旧包照旧注册，旧客户端的保存走不带续播参数的 `setData`，续播设置保持原样。
+
+GameTest `joinRangeSurvivesSavingAndDefaultsToStation` 测存读档、老存档缺省为车站、旧客户端保存不冲掉续播；
+`rangeModeFadesOutAfterLeavingTheBox` 加了从 0 淡入。跳读、资格判断、车站查找都在客户端，要进游戏验证。
+
 另外 `Box(BlockPos, BlockPos)` 直接拿整数坐标当 min/max、**大角不加 1**（原版构造函数字节码），
 而 `contains` 判的是 `< max`，所以照直传两个角点的话站在「坐标 2」那一格上算框外。
 `rangeBox()` 显式给大角 +1。（JCM 的声音循环器有同样的毛病，没跟。）

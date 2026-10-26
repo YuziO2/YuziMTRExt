@@ -94,6 +94,8 @@ public class YuziConfigScreen extends MTRScreenBase implements IGui {
 		toggle("最小刷新 (不清车)", () -> config.minimalPathRefresh, v -> config.minimalPathRefresh = v);
 		toggle("改停站免刷新", () -> config.applyDwellTimeWithoutRefresh, v -> config.applyDwellTimeWithoutRefresh = v);
 		toggle("侧线车辆最高速", () -> config.vehicleMaxSpeed, v -> config.vehicleMaxSpeed = v);
+		toggle("多色闭塞防互锁", () -> config.signalEntryCheck, v -> config.signalEntryCheck = v);
+		toggle("基础信号模式", () -> config.basicSignalMode, v -> config.basicSignalMode = v);
 
 		header("诊断日志");
 		toggle("模型缓存重建统计", () -> config.debugCacheLogging, v -> config.debugCacheLogging = v);

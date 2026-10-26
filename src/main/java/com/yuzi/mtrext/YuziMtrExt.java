@@ -4,6 +4,7 @@ import com.yuzi.mtrext.announcer.PacketAllRoutes;
 import com.yuzi.mtrext.psd.RopeBarriers;
 import com.yuzi.mtrext.station.PacketOpenStationAnnouncerScreen;
 import com.yuzi.mtrext.station.PacketUpdateStationAnnouncer;
+import com.yuzi.mtrext.station.PacketUpdateStationAnnouncerV2;
 import com.yuzi.mtrext.station.StationAnnouncers;
 import net.fabricmc.api.ModInitializer;
 import org.mtr.mapping.holder.Identifier;
@@ -42,6 +43,8 @@ public class YuziMtrExt implements ModInitializer {
 		// 站台广播器：开界面（S2C）和存配置（C2S）。
 		REGISTRY.registerPacket(PacketOpenStationAnnouncerScreen.class, PacketOpenStationAnnouncerScreen::new);
 		REGISTRY.registerPacket(PacketUpdateStationAnnouncer.class, PacketUpdateStationAnnouncer::new);
+		// 1.7.0 起客户端发这个（多了续播范围）；旧包留着接旧客户端，见 PacketUpdateStationAnnouncerV2 的说明
+		REGISTRY.registerPacket(PacketUpdateStationAnnouncerV2.class, PacketUpdateStationAnnouncerV2::new);
 		// registerPacket 只是往一张按类名索引的表里塞条目，真正开通道的是 setupPackets ——
 		// 它设置 packetsIdentifier 并注册服务端的 C2S 接收器。**Registry.init() 不会替你调它**
 		// （字节码确认：init() 只 forEach objectsToRegister 再注册一个命令回调）。
@@ -56,7 +59,9 @@ public class YuziMtrExt implements ModInitializer {
 		LOGGER.info("  分交路停站时长          : {}", config.perRouteDwellTime);
 		LOGGER.info("  升降式绳索屏蔽门（实验）: {}", config.ropeBarrier);
 		LOGGER.info("  广播器可选全部交路      : {}", config.announcerAllRoutes);
-		LOGGER.info("  站台广播器              : 已注册");
+		LOGGER.info("  站台广播器              : 已注册（限制范围离框 {} ms 淡出）", config.stationAnnouncerFadeMillis);
 		LOGGER.info("  侧线车辆最高速          : {}", config.vehicleMaxSpeed);
+		LOGGER.info("  多色闭塞防互锁          : {}", config.signalEntryCheck);
+		LOGGER.info("  基础信号模式            : {}", config.basicSignalMode);
 	}
 }

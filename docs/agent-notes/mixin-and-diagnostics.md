@@ -1,6 +1,6 @@
 # 排错与注入点约束
 
-崩溃时先对照 `logs/latest.log`、最新的 `crash-reports/` 时间戳和 `hs_err_pid*.log`。没有对应的 Java 异常时，用 `coredumpctl list` / `coredumpctl info <pid>` 看原生栈；`libgallium`、`radeonsi`、`amdgpu` 指向显卡驱动路径，本环境曾出现过。
+崩溃时先对照 `logs/latest.log`、最新的 `crash-reports/` 时间戳和 `hs_err_pid*.log`。没有对应的 Java 异常时，用 `coredumpctl list` / `coredumpctl info <pid>` 看原生栈；`libgallium`、`radeonsi`、`amdgpu` 说明是显卡驱动自己 abort，与本 mod 无关。本环境（AMD + Mesa + Distant Horizons + Iris + Sodium）出现过一次。
 
 `debugCacheLogging` 打开后会输出：
 - `构建车辆模型: <id>` —— 每行等于一次完整模型构建（含 OBJ 解析），用来定位是哪辆车在重建
@@ -16,7 +16,7 @@
 
 - **能用 `@Redirect` 一个唯一调用点，就别去数 `ordinal`。** 取消上游画交路名的循环
   用的是它那次 `routes.iterator()`，不是三个 `drawText` 里的第几个。
-- **mixin 里少写带初始化的 static final 字段**（要靠合并 `<clinit>`）。
+- **mixin 里少写带初始化的 static final 字段**（要靠合并 `<clinit>`）。常量放到普通类里，例如站台面板的布局常量在 `client/PlatformDwellRow`。
 - **目标类继承了别的类时，`method` 只写方法名可能匹配到继承来的重载。**
   `MainRenderer extends EntityRenderer<EntityRendering>`，于是它有三个 `render`：
   我们要的静态版 `(GraphicsHolder, Vector3d)V`，以及两个实例版
@@ -30,7 +30,8 @@
 - **`@Shadow` 对字段不沿继承链上溯。** `bogie1Models`、`names`、`doorXMultiplier` 都声明在
   生成的 `*Schema` 父类里，在子类的 mixin 上 `@Shadow` 会
   `InvalidMixinException` → 类加载失败 → 资源重载崩溃 → `resourcePacks` 被清空。
-  跨类读私有/protected 字段用 `@Mixin(targets = "...")` + `@Accessor`。
+  跨类读私有/protected 字段用 `@Mixin(targets = "...")` + `@Accessor`，打在**字段声明所在的类**上：
+  `SavedRailScreenAccessor` 打在 `SavedRailScreenBase`，而不是 `PlatformScreen`。
 - `@Accessor` 的返回类型必须和字段**精确匹配**（写 `Object` 会在编译期被注解处理器拦下 ——
   比运行时炸好得多）。
 - 写 `final` 字段要 `@Mutable`。

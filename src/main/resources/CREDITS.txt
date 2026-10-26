@@ -1,9 +1,16 @@
+本模组按 GNU Affero General Public License v3.0 分发（见 LICENSE）。
+以下内容来自其他项目，按各自的许可使用。
+
+==============================================================================
+RailwayAesthetics-Future（AGPL-3.0）
+==============================================================================
+
 升降式绳索屏蔽门的模型、贴图与音效派生自：
   RailwayAesthetics-Future — 作者 aphrodite281
   https://github.com/aphrodite281/RailwayAesthetics-Future
   许可：GNU Affero General Public License v3.0
 
-派生方式见 tools/gen_psda_pack.py：
+派生方式：
   - post.obj / post_blank.obj = movea.obj 的 d1 + d2 + sc 分组；sc（正面屏幕平面）
     分别改指深色（点阵屏底）与白色；t1/t2（柱脚小告示牌）一律填白
   - head.obj  = movea.obj 的 m 分组
@@ -11,3 +18,43 @@
   - suo.png、t.ogg 原样复制
 
 因为打包了这些 AGPL 资产，本模组整体也按 AGPL-3.0 分发。
+
+==============================================================================
+Minecraft Transit Railway（MIT）
+==============================================================================
+
+  https://github.com/Minecraft-Transit-Railway/Minecraft-Transit-Railway
+  Copyright (c) 2022 Jonathan Ho
+
+本模组是 MTR 的扩展，代码通过 Mixin 修改 MTR 与其内置的 Transport Simulation Core。
+高速轨道连接器的物品贴图从 MTR 的轨道连接器贴图换色生成，数字字形也取自 MTR 现有贴图。
+
+==============================================================================
+Joban Client Mod（MIT）
+==============================================================================
+
+  https://github.com/DistrictOfJoban/Joban-Client-Mod
+  Copyright (c) 2026 AmberFrost
+
+站台广播器「限制范围」模式的做法（框内的玩家逐个贴耳播放、框外听不到）参考了 JCM 的声音循环器。
+
+------------------------------------------------------------------------------
+以上两个项目的 MIT 许可全文：
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

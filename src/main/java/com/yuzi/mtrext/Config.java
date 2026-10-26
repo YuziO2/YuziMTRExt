@@ -219,6 +219,33 @@ public final class Config {
 	public boolean vehicleMaxSpeed = true;
 
 	/**
+	 * 多色闭塞防互锁：列车进闭塞前，确认路线上属于这个闭塞的每一段都没被别的车占（不论颜色），否则停在闭塞外等。
+	 *
+	 * <p>上游只查闭塞首段自己的占用表，看不到中间多色段上别的颜色的占用，于是车进了闭塞、停在多色段前，
+	 * 另一种颜色那边的车又被它挡住 —— 永久互锁。纯单色的布局行为不变。
+	 * 见 {@link SignalEntryCheck}。**这条改服务端。**
+	 */
+	public boolean signalEntryCheck = true;
+
+	/**
+	 * 基础信号模式：普通颜色的闭塞不做「出闭塞后一个车长必须空」检查，照搬上游 TSC 新版（02bfc24）的做法；
+	 * 只有颜色带 alpha 位的「高级模式」闭塞才做。4.0.5 设不了 alpha 位，开着它等于整条检查不做，行为回到 MTR3。
+	 *
+	 * <p>不开时，终点站台所在的闭塞会因为出口外另一种颜色的区间被占而进不了站（湾湾岛 4 号线被 14 号线挡住）。
+	 * 代价与 MTR3 相同：直通车会进到闭塞末端再等下一闭塞，闭塞里有道岔时等待期间占着道岔；
+	 * 两个方向各占交叉进路一半时会互锁（道岔区和接近区段要刷成同一个闭塞）。
+	 * 见 {@link com.yuzi.mtrext.mixin.VehicleSignalExitCheckMixin}。**这条改服务端。**
+	 */
+	public boolean basicSignalMode = true;
+
+	/**
+	 * 站台广播器「限制范围」模式：玩家离开框后，这么多毫秒内淡到停（0 = 离框就停）。
+	 * 只对装了 1.6.0 及以上的客户端生效，旧客户端照旧放完。见 {@link com.yuzi.mtrext.station.RangedAnnouncerSound}。
+	 * **这条改服务端**（随播放指令一起发给客户端）。
+	 */
+	public int stationAnnouncerFadeMillis = 500;
+
+	/**
 	 * 把同一模型的所有 FLOOR 盒子统一撑到最宽那个的 x 范围，让人能走到窗边。
 	 * 所谓「座位碰撞箱」其实是地板边界 —— VehicleRidingMovement.clampPosition
 	 * 把玩家夹在单个 FLOOR 盒子内，而座位底下没铺 FLOOR。

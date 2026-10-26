@@ -1,5 +1,6 @@
 package com.yuzi.mtrext.station;
 
+import com.yuzi.mtrext.Config;
 import com.yuzi.mtrext.YuziMtrExt;
 import org.mtr.core.operation.ArrivalResponse;
 import org.mtr.libraries.it.unimi.dsi.fastutil.longs.LongAVLTreeSet;
@@ -62,6 +63,10 @@ public class StationAnnouncerBlockEntity extends BlockEntityExtension {
 	private boolean limitRange;
 	private BlockPos corner1;
 	private BlockPos corner2;
+	/** 续播范围，见 {@link #JOIN_STATION}。 */
+	private int joinMode = JOIN_STATION;
+	private BlockPos joinCorner1;
+	private BlockPos joinCorner2;
 
 	/**
 	 * 已经播过的班次。防止同一趟车反复触发。
@@ -86,6 +91,20 @@ public class StationAnnouncerBlockEntity extends BlockEntityExtension {
 
 	/** 默认音量 2 → 半径 16×2 = 32 格，够覆盖一个普通站台。 */
 	public static final float DEFAULT_VOLUME = 2;
+
+	/*
+	 * 续播范围（只对限制范围生效）：广播触发那一刻人在这个范围里、又没在乘车，之后走进播放框就能听到，
+	 * 播放位置按触发以来实际过去的时间算，已经放完就不放。触发时就在播放框里的人不受这个限制，照常播放。
+	 * 坐车进站的人触发时不在范围里（或正在乘车），进框也听不到站台刚放的声音。
+	 */
+	/** 不续播：只有触发时在播放框里的人能听到（1.6.0 及以前的行为）。 */
+	public static final int JOIN_NONE = 0;
+	/** 续播范围 = 规则所选站台所属的车站（MTR 车站范围是平面矩形，上下不限高）。缺省值，老方块读档也是它。 */
+	public static final int JOIN_STATION = 1;
+	/** 续播范围 = 自定义的长方体。 */
+	public static final int JOIN_CUSTOM = 2;
+	/** 车站范围由客户端判断（服务端拿不到车站数据），服务端只把指令发给这个水平半径内的玩家。 */
+	private static final double STATION_JOIN_SEND_RADIUS = 512;
 
 	/**
 	 * 「限制范围」那档传给客户端的音量。增益会被钳到 1，这个大数只是把衰减距离拉到
@@ -162,6 +181,9 @@ public class StationAnnouncerBlockEntity extends BlockEntityExtension {
 	private static final String KEY_LIMIT_RANGE = "limit_range";
 	private static final String KEY_CORNER_1 = "corner_1";
 	private static final String KEY_CORNER_2 = "corner_2";
+	private static final String KEY_JOIN_MODE = "join_mode";
+	private static final String KEY_JOIN_CORNER_1 = "join_corner_1";
+	private static final String KEY_JOIN_CORNER_2 = "join_corner_2";
 
 	public StationAnnouncerBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
 		super(type, pos, state);
@@ -201,6 +223,10 @@ public class StationAnnouncerBlockEntity extends BlockEntityExtension {
 		limitRange = compoundTag.getBoolean(KEY_LIMIT_RANGE);
 		corner1 = readPos(compoundTag, KEY_CORNER_1);
 		corner2 = readPos(compoundTag, KEY_CORNER_2);
+		// 没有这个键的老方块按「车站范围」处理（用户要求已经摆好的也一律套用）
+		joinMode = compoundTag.contains(KEY_JOIN_MODE) ? compoundTag.getInt(KEY_JOIN_MODE) : JOIN_STATION;
+		joinCorner1 = readPos(compoundTag, KEY_JOIN_CORNER_1);
+		joinCorner2 = readPos(compoundTag, KEY_JOIN_CORNER_2);
 		rebuildQueriedPlatformIds();
 	}
 
@@ -239,6 +265,9 @@ public class StationAnnouncerBlockEntity extends BlockEntityExtension {
 		compoundTag.putBoolean(KEY_LIMIT_RANGE, limitRange);
 		writePos(compoundTag, KEY_CORNER_1, corner1);
 		writePos(compoundTag, KEY_CORNER_2, corner2);
+		compoundTag.putInt(KEY_JOIN_MODE, joinMode);
+		writePos(compoundTag, KEY_JOIN_CORNER_1, joinCorner1);
+		writePos(compoundTag, KEY_JOIN_CORNER_2, joinCorner2);
 	}
 
 	private static BlockPos readPos(CompoundTag compoundTag, String key) {
@@ -285,6 +314,28 @@ public class StationAnnouncerBlockEntity extends BlockEntityExtension {
 		return corner2 != null ? corner2 : getPos2().add(DEFAULT_RANGE_HORIZONTAL, DEFAULT_RANGE_VERTICAL, DEFAULT_RANGE_HORIZONTAL);
 	}
 
+	public int getJoinMode() {
+		return joinMode;
+	}
+
+	/** 自定义续播框没设过时，默认等于播放框 —— 用户在此基础上往外扩。 */
+	public BlockPos getJoinCorner1() {
+		return joinCorner1 != null ? joinCorner1 : getCorner1();
+	}
+
+	public BlockPos getJoinCorner2() {
+		return joinCorner2 != null ? joinCorner2 : getCorner2();
+	}
+
+	public void setData(List<AnnouncerRule> newRules, float volume, boolean realtimeOnly, boolean limitRange, BlockPos corner1, BlockPos corner2,
+						int joinMode, BlockPos joinCorner1, BlockPos joinCorner2) {
+		this.joinMode = joinMode == JOIN_NONE || joinMode == JOIN_CUSTOM ? joinMode : JOIN_STATION;
+		this.joinCorner1 = joinCorner1;
+		this.joinCorner2 = joinCorner2;
+		setData(newRules, volume, realtimeOnly, limitRange, corner1, corner2);
+	}
+
+	/** 不带续播参数的版本：旧客户端发来的保存走这里，续播设置保持原样。 */
 	public void setData(List<AnnouncerRule> newRules, float volume, boolean realtimeOnly, boolean limitRange, BlockPos corner1, BlockPos corner2) {
 		rules.clear();
 		newRules.forEach(rule -> rules.add(new AnnouncerRule(rule)));
@@ -446,7 +497,7 @@ public class StationAnnouncerBlockEntity extends BlockEntityExtension {
 				continue;
 			}
 			recordFired(pendingAnnouncement.ruleIndex, pendingAnnouncement.routeId, pendingAnnouncement.departureIndex, pendingAnnouncement.base, now);
-			play(world, rules.get(pendingAnnouncement.ruleIndex).soundId);
+			play(world, rules.get(pendingAnnouncement.ruleIndex));
 		}
 	}
 
@@ -512,15 +563,28 @@ public class StationAnnouncerBlockEntity extends BlockEntityExtension {
 	 * （JCM 的声音循环器有同样的毛病，没跟。）
 	 */
 	private Box rangeBox() {
-		final BlockPos c1 = getCorner1();
-		final BlockPos c2 = getCorner2();
-		return new Box(
-				Math.min(c1.getX(), c2.getX()), Math.min(c1.getY(), c2.getY()), Math.min(c1.getZ(), c2.getZ()),
-				Math.max(c1.getX(), c2.getX()) + 1.0, Math.max(c1.getY(), c2.getY()) + 1.0, Math.max(c1.getZ(), c2.getZ()) + 1.0
-		);
+		final double[] bounds = rangeBounds();
+		return new Box(bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]);
 	}
 
-	private void play(World world, String soundId) {
+	/** {minX, minY, minZ, maxX, maxY, maxZ}，max 含 +1（两个角都是方块坐标，框要包住整个角方块）。 */
+	private double[] rangeBounds() {
+		return bounds(getCorner1(), getCorner2());
+	}
+
+	private double[] joinBounds() {
+		return bounds(getJoinCorner1(), getJoinCorner2());
+	}
+
+	private static double[] bounds(BlockPos c1, BlockPos c2) {
+		return new double[]{
+				Math.min(c1.getX(), c2.getX()), Math.min(c1.getY(), c2.getY()), Math.min(c1.getZ(), c2.getZ()),
+				Math.max(c1.getX(), c2.getX()) + 1.0, Math.max(c1.getY(), c2.getY()) + 1.0, Math.max(c1.getZ(), c2.getZ()) + 1.0
+		};
+	}
+
+	private void play(World world, AnnouncerRule rule) {
+		final String soundId = rule.soundId;
 		final SoundEvent soundEvent;
 		try {
 			soundEvent = SoundHelper.createSoundEvent(new Identifier(soundId));
@@ -541,20 +605,42 @@ public class StationAnnouncerBlockEntity extends BlockEntityExtension {
 			// 传 1 的话衰减距离只有 16 格 —— 十几秒的报站放到一半，人走出 16 格就静音了。
 			// 传大数时增益照样被钳到 1，只是把衰减距离拉到听不出衰减。MTR 自己的
 			// BlockTrainAnnouncer 传 1000 正是这个道理。
+			// 客户端支持的话改成「离框淡出」：离开框后在 stationAnnouncerFadeMillis 内淡到停，
+			// 车开走了前一站的广播就不会一路放到下一站。不支持的客户端照旧（见 RangedAnnouncerSound）。
+			// 支持续播的客户端（1.7.0+）除了框里的人，还要发给续播范围里的候选人：车站范围由客户端判断
+			// （服务端拿不到车站数据），所以发给半径内所有人；自定义框服务端自己筛。谁最终有资格由客户端定。
 			final Box box = rangeBox();
+			final double[] bounds = rangeBounds();
+			final double[] joinBounds = joinMode == JOIN_CUSTOM ? joinBounds() : null;
+			final int fadeTicks = Math.max(1, Math.round(Config.get().stationAnnouncerFadeMillis / 50F));
+			final BlockPos center = getPos2();
 			final int[] matched = {0};
 			final StringBuilder outsidePlayers = new StringBuilder();
 			MinecraftServerHelper.iteratePlayers(ServerWorld.cast(world), serverPlayerEntity -> {
-				if (box.contains(serverPlayerEntity.getX(), serverPlayerEntity.getY(), serverPlayerEntity.getZ())) {
+				final double x = serverPlayerEntity.getX();
+				final double y = serverPlayerEntity.getY();
+				final double z = serverPlayerEntity.getZ();
+				final boolean inBox = box.contains(x, y, z);
+				if (RangedAnnouncerSound.canJoin(serverPlayerEntity.data)) {
+					final boolean candidate = inBox
+							|| joinMode == JOIN_STATION && Math.hypot(x - center.getX(), z - center.getZ()) <= STATION_JOIN_SEND_RADIUS
+							|| joinMode == JOIN_CUSTOM && x >= joinBounds[0] && y >= joinBounds[1] && z >= joinBounds[2] && x < joinBounds[3] && y < joinBounds[4] && z < joinBounds[5];
+					if (candidate) {
+						RangedAnnouncerSound.sendJoinable(serverPlayerEntity.data, soundId, rule.durationMillis, bounds, fadeTicks, joinMode, rule.platformId, joinBounds);
+					}
+				}
+				if (inBox) {
 					matched[0]++;
-					serverPlayerEntity.playSound(soundEvent, SoundCategory.BLOCKS, NON_POSITIONAL_VOLUME, 1);
+					if (!RangedAnnouncerSound.canJoin(serverPlayerEntity.data) && !RangedAnnouncerSound.send(serverPlayerEntity.data, soundId, bounds, fadeTicks)) {
+						serverPlayerEntity.playSound(soundEvent, SoundCategory.BLOCKS, NON_POSITIONAL_VOLUME, 1);
+					}
 				} else if (outsidePlayers.length() < 200) {
 					outsidePlayers.append(' ').append(serverPlayerEntity.getBlockPos().toShortString());
 				}
 			});
 			// 触发了却一个人都不在框里 —— 这种情况下用户听到的是「完全没声音」，
 			// 和「根本没触发」在体感上没法区分。留一条节流过的日志，省得下次又要反推。
-			// 注意框内判定是**触发那一刻**的快照：广播开始之后才走进框的人听不到。
+			// 注意框内判定是**触发那一刻**的快照：广播开始之后才走进框的人听不到（离开框会淡出，走回来不会重新收到）。
 			//
 			// 坐标一律 toShortString()：mapping 的 BlockPos 继承 HolderBase，**两者都没覆写 toString**，
 			// 直接拼出来是「org.mtr.mapping.holder.BlockPos@1a2b3c」。

@@ -104,21 +104,26 @@ jar {
 	from('LICENSE') { rename { "${it}_${base.archivesName.get()}" } }
 }
 
-// 便捷任务：构建后直接丢进 mods 目录。路径在 gradle.properties 里。
-// 分交路停站时长是服务端功能，改了它要 deployToServer 并重启服务端。
-private void registerDeployTask(String name, String targetDir) {
+// 便捷任务：构建后直接丢进 mods 目录。改了服务端功能要 deployToServer 并重启服务端。
+// 目录因机器而异，写在 ~/.gradle/gradle.properties（见 gradle.properties 里的说明）；
+// 没设时只让部署任务本身报错，构建和 CI 不受影响。
+private void registerDeployTask(String name, String propertyName) {
+	final def targetDir = project.findProperty(propertyName)
 	tasks.register(name, Copy) {
 		dependsOn tasks.remapJar
 		from tasks.remapJar
-		into targetDir
+		into targetDir ?: layout.buildDirectory.dir('deploy-target-not-set')
 		doFirst {
+			if (!targetDir) {
+				throw new GradleException("没有设置 ${propertyName}：在 ~/.gradle/gradle.properties 里加一行 ${propertyName}=<mods 目录>")
+			}
 			delete fileTree(targetDir) { include "${base.archivesName.get()}-*.jar" }
 		}
 	}
 }
 
-registerDeployTask('deployToClient', project.client_mods_dir)
-registerDeployTask('deployToServer', project.server_mods_dir)
+registerDeployTask('deployToClient', 'client_mods_dir')
+registerDeployTask('deployToServer', 'server_mods_dir')
 
 tasks.register('deployAll') {
 	dependsOn tasks.named('deployToClient'), tasks.named('deployToServer')
